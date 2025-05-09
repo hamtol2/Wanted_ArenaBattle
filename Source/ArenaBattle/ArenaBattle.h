@@ -5,7 +5,7 @@
 #include "CoreMinimal.h"
 
 // 넷모드(네트워크 모드) 정보.
-#define LOG_NETMODEINFO ( (GetNetMode() == ENetMode::NM_Client) ? *FString::Printf(TEXT("CLIENT%d"), (int32)GPlayInEditorID) : ( ( GetNetMode() == ENetMode::NM_Standalone ) ? TEXT("STANDALONE") : TEXT("SERVER"))  )
+#define LOG_NETMODEINFO ( (GetNetMode() == ENetMode::NM_Client) ? *FString::Printf(TEXT("CLIENT%d"), (int32)GPlayInEditorID) : ( GetNetMode() == ENetMode::NM_Standalone ) ? TEXT("STANDALONE") : TEXT("SERVER"))
 
 // 함수 호출 정보.
 #define LOG_CALLINFO ANSI_TO_TCHAR(__FUNCTION__)

@@ -29,12 +29,20 @@ void AABGameMode::OnPlayerDead()
 
 }
 
-void AABGameMode::PreLogin(const FString& Options, const FString& Address, const FUniqueNetIdRepl& UniqueId, FString& ErrorMessage)
+void AABGameMode::PreLogin(
+	const FString& Options, 
+	const FString& Address, 
+	const FUniqueNetIdRepl& UniqueId, 
+	FString& ErrorMessage)
 {
 	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("=========================="));
 	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
 
 	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
+
+	// ErrorMessage에 아무런 값을 입력하지 않으면, 로그인을 통과시킴.
+	// 하지만 ErrorMessage에 값을 할당하면, 이를 오류로 간주함.
+	//ErrorMessage = TEXT("Server is Full");
 
 	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
 }
@@ -56,14 +64,38 @@ void AABGameMode::PostLogin(APlayerController* NewPlayer)
 
 	Super::PostLogin(NewPlayer);
 
+	// NetDriver 가져오기.
+	UNetDriver* NetDriver = GetNetDriver();
+	if (NetDriver)
+	{
+		// 클라이언트의 접속이 없는 경우.
+		if (NetDriver->ClientConnections.Num() == 0)
+		{
+			AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("No client connection"));
+		}
+		// 클라이언트의 접속이 있는 경우.
+		else
+		{
+			for (const auto& Connection : NetDriver->ClientConnections)
+			{
+				AB_LOG(LogABNetwork, Log, TEXT("Client connections: %s"),
+					*Connection->GetName());
+			}
+		}
+	}
+	else
+	{
+		AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("No NetDriver"));
+	}
+
 	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
 }
 
 void AABGameMode::StartPlay()
 {
-	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+	//AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
 
-	Super::StartPlay();
+	//Super::StartPlay();
 
-	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
+	//AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
 }
