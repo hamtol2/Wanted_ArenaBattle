@@ -38,7 +38,7 @@ void AABGameMode::PreLogin(
 	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("=========================="));
 	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
 
-	Super::PreLogin(Options, Address, UniqueId, ErrorMessage);
+	Super::PreLogin(Options, Address, UniqueId, ErrorMessage); 
 
 	// ErrorMessage에 아무런 값을 입력하지 않으면, 로그인을 통과시킴.
 	// 하지만 ErrorMessage에 값을 할당하면, 이를 오류로 간주함.

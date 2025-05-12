@@ -64,6 +64,9 @@ void AABPlayerController::BeginPlay()
 
 void AABPlayerController::OnPossess(APawn* aPawn)
 {
+	ENetRole LocalRoleTest = GetLocalRole();
+	ENetRole RemoteRoleTest = GetRemoteRole();
+
 	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
 
 	Super::OnPossess(aPawn);
