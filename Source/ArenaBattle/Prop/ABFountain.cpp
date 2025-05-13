@@ -3,13 +3,14 @@
 
 #include "Prop/ABFountain.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/PointLightComponent.h"
 #include "Net/UnrealNetwork.h"
 #include "ArenaBattle.h"
 
 // Sets default values
 AABFountain::AABFountain()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
+	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true;
 
 	Body = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("Body"));
@@ -36,23 +37,55 @@ AABFountain::AABFountain()
 
 	// 네트워크 전송 빈도 설정 (1초에 1번으로 줄이기).
 	NetUpdateFrequency = 1.0f;
+
+	// 거리 판정에 사용하는 값 줄이기.
+	// 4000000 > 대략 20미터.
+	NetCullDistanceSquared = 4000000.0f;
+
+	// 휴면 상태로 시작하도록 열거형 값 설정.
+	NetDormancy = DORM_Initial;
 }
 
 // Called when the game starts or when spawned
 void AABFountain::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 	// 서버 로직.
-	//if (HasAuthority())
-	//{
-	//	FTimerHandle Handle;
-	//	GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([&]() 
-	//		{
-	//			ServerRotationYaw += 1.0f;
-	//		}
-	//	), 1.0f, true);
-	//}
+	if (HasAuthority())
+	{
+		FTimerHandle Handle;
+		GetWorld()->GetTimerManager().SetTimer(Handle, FTimerDelegate::CreateLambda([&]()
+			{
+				//// 4000 바이트의 데이터 설정.
+				//BigData.Init(BigDataElement, 1000);
+
+				//// 데이터 변경을 위한 값 설정.
+				//BigDataElement += 1.0f;
+
+				// 색상 값을 랜덤으로 설정.
+				ServerLightColor = FLinearColor(
+					FMath::RandRange(0.0f, 1.0f),
+					FMath::RandRange(0.0f, 1.0f),
+					FMath::RandRange(0.0f, 1.0f),
+					1.0f
+				);
+
+				OnRep_ServerLightColor();
+
+			}
+		), 1.0f, true);
+
+		// 휴면 상태를 깨우기 위해 사용할 타이머.
+		FTimerHandle Handle2;
+		GetWorld()->GetTimerManager().SetTimer(
+			Handle2,
+			FTimerDelegate::CreateLambda([&]()
+				{
+					FlushNetDormancy();
+				}
+			), 10.0f, false);
+	}
 }
 
 void AABFountain::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
@@ -61,10 +94,14 @@ void AABFountain::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 
 	// 복제할 속성 정의 추가.
 	DOREPLIFETIME(AABFountain, ServerRotationYaw);
+
+	//DOREPLIFETIME(AABFountain, BigData);
+
+	DOREPLIFETIME(AABFountain, ServerLightColor);
 }
 
 void AABFountain::OnActorChannelOpen(
-	FInBunch& InBunch, 
+	FInBunch& InBunch,
 	UNetConnection* Connection)
 {
 	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
@@ -72,6 +109,22 @@ void AABFountain::OnActorChannelOpen(
 	Super::OnActorChannelOpen(InBunch, Connection);
 
 	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
+}
+
+bool AABFountain::IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const
+{
+	bool NetRelevantResult
+		= Super::IsNetRelevantFor(RealViewer, ViewTarget, SrcLocation);
+
+	if (!NetRelevantResult)
+	{
+		AB_LOG(LogABNetwork, Log, TEXT("Not Relevant: [%s] %s"),
+			*RealViewer->GetName(),
+			*SrcLocation.ToCompactString()
+		);
+	}
+
+	return NetRelevantResult;
 }
 
 // Called every frame
@@ -141,4 +194,23 @@ void AABFountain::OnRep_ServerRotationYaw()
 
 	// 서버로부터 데이터를 받았기 때문에 0으로 초기화.
 	ClientTimeSinceUpdate = 0.0f;
+}
+
+void AABFountain::OnRep_ServerLightColor()
+{
+	if (!HasAuthority())
+	{
+		AB_LOG(LogABNetwork, Log, TEXT("LightColor: %s"),
+			*ServerLightColor.ToString());
+	}
+
+	// 컴포넌트 검색.
+	UPointLightComponent* PointLight
+		= Cast<UPointLightComponent>(GetComponentByClass(UPointLightComponent::StaticClass()));
+
+	if (PointLight)
+	{
+		// 서버에서 전달한 라이트 색상 적용.
+		PointLight->SetLightColor(ServerLightColor);
+	}
 }

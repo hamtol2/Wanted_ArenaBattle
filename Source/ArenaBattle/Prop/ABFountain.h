@@ -25,6 +25,9 @@ protected:
 	// 액터 채널이 열릴 때 호출되는 함수.
 	virtual void OnActorChannelOpen(class FInBunch& InBunch, class UNetConnection* Connection) override;
 
+	// 연관성 판정을 진행할 때 사용하는 함수.
+	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
+
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
@@ -39,9 +42,22 @@ public:
 	UFUNCTION()
 	void OnRep_ServerRotationYaw();
 
+	UFUNCTION()
+	void OnRep_ServerLightColor();
+
 	// 리플리케이션 옵션 지정.
 	UPROPERTY(ReplicatedUsing = OnRep_ServerRotationYaw)
 	float ServerRotationYaw;
+
+	//// 의도적으로 네트워크를 포화(Saturation) 상태로 만들기 위한 변수.
+	//UPROPERTY(Replicated)
+	//TArray<float> BigData;
+
+	//// 데이터 변경 용 변수.
+	//float BigDataElement = 0.0f;
+
+	UPROPERTY(ReplicatedUsing = OnRep_ServerLightColor)
+	FLinearColor ServerLightColor;
 
 	// 회전 속도.
 	float RotationRate = 30.0f;
