@@ -48,6 +48,18 @@ public:
 	UFUNCTION()
 	void OnRep_ServerLightColor();
 
+	// 모든 클라이언트에 조명 색상 변경을 요청할 때 사용할 멀티캐스트 RPC 함수.
+	UFUNCTION(NetMulticast, Unreliable)
+	void MulticastRPCChangeLightColor(const FLinearColor& NewLightColor);
+
+	// 클라이언트가 서버에 조명 색상 변경을 요청할 때 사용할 Server RPC 함수.
+	UFUNCTION(Server, Unreliable, WithValidation)
+	void ServerRPCChangeLightColor();
+
+	// Client RPC.
+	UFUNCTION(Client, Unreliable)
+	void ClientRPCChangeLightColor(const FLinearColor& NewLightColor);
+
 	// 리플리케이션 옵션 지정.
 	UPROPERTY(ReplicatedUsing = OnRep_ServerRotationYaw)
 	float ServerRotationYaw;
