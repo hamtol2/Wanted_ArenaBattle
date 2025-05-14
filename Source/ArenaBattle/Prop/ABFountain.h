@@ -22,14 +22,14 @@ protected:
 	// 네트워크로 복제될 속성을 추가하기 위한 함수 오버라이딩.
 	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
 
-	// 액터 채널이 열릴 때 호출되는 함수.
-	virtual void OnActorChannelOpen(class FInBunch& InBunch, class UNetConnection* Connection) override;
+	//// 액터 채널이 열릴 때 호출되는 함수.
+	//virtual void OnActorChannelOpen(class FInBunch& InBunch, class UNetConnection* Connection) override;
 
-	// 연관성 판정을 진행할 때 사용하는 함수.
-	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
+	//// 연관성 판정을 진행할 때 사용하는 함수.
+	//virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
 
-	// 전송할 액터 목록이 준비되면 실행되는 함수.
-	virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override;
+	//// 전송할 액터 목록이 준비되면 실행되는 함수.
+	//virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override;
 
 public:	
 	// Called every frame
