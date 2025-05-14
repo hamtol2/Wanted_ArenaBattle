@@ -43,7 +43,7 @@ AABFountain::AABFountain()
 	NetCullDistanceSquared = 4000000.0f;
 
 	// 휴면 상태로 시작하도록 열거형 값 설정.
-	NetDormancy = DORM_Initial;
+	//NetDormancy = DORM_Initial;
 }
 
 // Called when the game starts or when spawned
@@ -82,7 +82,7 @@ void AABFountain::BeginPlay()
 			Handle2,
 			FTimerDelegate::CreateLambda([&]()
 				{
-					FlushNetDormancy();
+					//FlushNetDormancy();
 				}
 			), 10.0f, false);
 	}
@@ -98,6 +98,8 @@ void AABFountain::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifet
 	//DOREPLIFETIME(AABFountain, BigData);
 
 	DOREPLIFETIME(AABFountain, ServerLightColor);
+
+	//DOREPLIFETIME_CONDITION(AABFountain, ServerLightColor, COND_InitialOnly);
 }
 
 void AABFountain::OnActorChannelOpen(
@@ -125,6 +127,13 @@ bool AABFountain::IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewT
 	}
 
 	return NetRelevantResult;
+}
+
+void AABFountain::PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker)
+{
+	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+
+	Super::PreReplication(ChangedPropertyTracker);
 }
 
 // Called every frame

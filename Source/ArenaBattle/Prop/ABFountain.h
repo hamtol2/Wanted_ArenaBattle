@@ -28,6 +28,9 @@ protected:
 	// 연관성 판정을 진행할 때 사용하는 함수.
 	virtual bool IsNetRelevantFor(const AActor* RealViewer, const AActor* ViewTarget, const FVector& SrcLocation) const override;
 
+	// 전송할 액터 목록이 준비되면 실행되는 함수.
+	virtual void PreReplication(IRepChangedPropertyTracker& ChangedPropertyTracker) override;
+
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
