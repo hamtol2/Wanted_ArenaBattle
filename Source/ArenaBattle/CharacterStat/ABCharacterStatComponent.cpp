@@ -3,6 +3,8 @@
 
 #include "CharacterStat/ABCharacterStatComponent.h"
 #include "GameData/ABGameSingleton.h"
+#include "Net/UnrealNetwork.h"
+#include "ArenaBattle.h"
 
 // Sets default values for this component's properties
 UABCharacterStatComponent::UABCharacterStatComponent()
@@ -11,6 +13,9 @@ UABCharacterStatComponent::UABCharacterStatComponent()
 	AttackRadius = 50.0f;
 
 	bWantsInitializeComponent = true;
+
+	// 컴포넌트 리플리케이션 활성화.
+	SetIsReplicated(true);
 }
 
 void UABCharacterStatComponent::InitializeComponent()
@@ -19,6 +24,42 @@ void UABCharacterStatComponent::InitializeComponent()
 
 	SetLevelStat(CurrentLevel);
 	SetHp(BaseStat.MaxHp);
+}
+
+void UABCharacterStatComponent::BeginPlay()
+{
+	AB_SUBLOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+
+	Super::BeginPlay();
+}
+
+void UABCharacterStatComponent::ReadyForReplication()
+{
+	AB_SUBLOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+
+	Super::ReadyForReplication();
+}
+
+void UABCharacterStatComponent::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+
+	// 프로퍼티를 리플리케이션에 등록.
+	DOREPLIFETIME(UABCharacterStatComponent, CurrentHp);
+}
+
+void UABCharacterStatComponent::OnRep_CurrentHp()
+{
+	AB_SUBLOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+
+	// 서버로부터 받은 변경된 CurrentHp 정보를 델리게이트를 통해 알림.
+	OnHpChanged.Broadcast(CurrentHp);
+
+	// 죽었는 지 확인.
+	if (CurrentHp <= KINDA_SMALL_NUMBER)
+	{
+		OnHpZero.Broadcast();
+	}
 }
 
 void UABCharacterStatComponent::SetLevelStat(int32 InNewLevel)

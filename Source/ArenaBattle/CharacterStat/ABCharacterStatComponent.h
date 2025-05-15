@@ -23,6 +23,13 @@ public:
 protected:
 	virtual void InitializeComponent() override;
 
+	virtual void BeginPlay() override;
+	virtual void ReadyForReplication() override;
+	virtual void GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const override;
+
+	UFUNCTION()
+	void OnRep_CurrentHp();
+
 public:
 	FOnHpZeroDelegate OnHpZero;
 	FOnHpChangedDelegate OnHpChanged;
@@ -45,7 +52,7 @@ public:
 protected:
 	void SetHp(float NewHp);
 
-	UPROPERTY(Transient, VisibleInstanceOnly, Category = Stat)
+	UPROPERTY(ReplicatedUsing = OnRep_CurrentHp, Transient, VisibleInstanceOnly, Category = Stat)
 	float CurrentHp;
 
 	UPROPERTY(Transient, VisibleInstanceOnly, Category = Stat)

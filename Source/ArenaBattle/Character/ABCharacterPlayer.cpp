@@ -314,12 +314,12 @@ void AABCharacterPlayer::Attack()
 
 void AABCharacterPlayer::AttackHitCheck()
 {
+	// 로그 출력.
+	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+
 	// 공격 판정은 서버에서만 진행.
 	if (HasAuthority())
 	{
-		// 로그 출력.
-		AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
-
 		// 일단 상위 클래스에 있는 로직을 그대로 옮김.
 		FHitResult OutHitResult;
 		FCollisionQueryParams Params(SCENE_QUERY_STAT(Attack), false, this);
