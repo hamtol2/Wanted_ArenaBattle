@@ -19,6 +19,7 @@
 #include "Net/UnrealNetwork.h"
 
 #include "GameFramework/GameStateBase.h"
+#include "EngineUtils.h"
 
 AABCharacterPlayer::AABCharacterPlayer()
 {
@@ -448,6 +449,16 @@ void AABCharacterPlayer::DrawDebugAttackRange(
 #endif
 }
 
+void AABCharacterPlayer::ClientRPCPlayAnimation_Implementation(
+	AABCharacterPlayer* CharacterToPlay)
+{
+	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+	if (CharacterToPlay)
+	{
+		CharacterToPlay->PlayAttackAnimation();
+	}
+}
+
 bool AABCharacterPlayer::ServerRPCNotifyHit_Validate(const FHitResult& HitResult, float HitCheckTime)
 {
 	// 클라이언트로부터 공격 관련 시간 값이 전달 안됐으면, 검증 안함.
@@ -517,16 +528,34 @@ void AABCharacterPlayer::ServerRPCNotifyHit_Implementation(const FHitResult& Hit
 
 #endif
 
+		// 디버그 드로우로 공격 영역 보여주기.
+		DrawDebugAttackRange(
+			FColor::Green, 
+			HitResult.TraceStart, 
+			HitResult.TraceEnd, 
+			HitActor->GetActorForwardVector()
+		);
 	}
 }
 
-bool AABCharacterPlayer::ServerRPCNotifyMiss_Validate(FVector TraceStart, FVector TraceEnd, FVector TraceDir, float HitCheckTime)
+bool AABCharacterPlayer::ServerRPCNotifyMiss_Validate(
+	FVector_NetQuantize TraceStart, FVector_NetQuantize TraceEnd, FVector_NetQuantizeNormal TraceDir, float HitCheckTime)
 {
-	return true;
+	// 클라이언트로부터 공격 관련 시간 값이 전달 안됐으면, 검증 안함.
+	if (LastAttackStartTime == 0.0f)
+	{
+		return true;
+	}
+
+	// 공격을 시작한 후 공격을 판정한 시간 사이에 걸린 시간이
+	// 공격 판정 최소 기준을 넘어가는 지 확인.
+	return (HitCheckTime - LastAttackStartTime) > AcceptMinCheckTime;
 }
 
-void AABCharacterPlayer::ServerRPCNotifyMiss_Implementation(FVector TraceStart, FVector TraceEnd, FVector TraceDir, float HitCheckTime)
+void AABCharacterPlayer::ServerRPCNotifyMiss_Implementation(
+	FVector_NetQuantize TraceStart, FVector_NetQuantize TraceEnd, FVector_NetQuantizeNormal TraceDir, float HitCheckTime)
 {
+	DrawDebugAttackRange(FColor::Red, TraceStart, TraceEnd, TraceDir);
 }
 
 bool AABCharacterPlayer::ServerRPCAttack_Validate(float AttackStartTime)
@@ -594,7 +623,37 @@ void AABCharacterPlayer::ServerRPCAttack_Implementation(float AttackStartTime)
 	// 클라이언트가 공격 입력을 해서 서버로 호출을 요청할 때 실행됨.
 	// 리슨 서버의 경우에는 로컬에서 실행되기 때문에 곧바로 실행됨.
 	// 그 외의 다른 클라이언트는 네트워크로부터 신호를 받아 실행됨.
-	MulticastRPCAttack();
+	//MulticastRPCAttack();
+
+	// 기존에 Multicast > Client RPC로 변경.
+	for (auto* PlayerController : TActorRange<APlayerController>(GetWorld()))
+	{
+		//UE_LOG(LogABNetwork, Log, TEXT("GetController: %s | PlayerController: %s | IsLocalController: %s"),
+		//	*GetController()->GetName(),
+		//	*PlayerController->GetName(),
+		//	(PlayerController->IsLocalPlayerController() ? )
+		//);
+
+		// 서버에 있는 플레이어 컨트롤러 거르기.
+		if (PlayerController && GetController() != PlayerController)
+		{
+			// 클라이언트 중에서 본인이 아닌지 확인.
+			if (!PlayerController->IsLocalController())
+			{
+				// 여기로 넘어온 플레이어 컨트롤러는
+				// 서버도 아니고, 본인 클라이언트도 아님.
+				AABCharacterPlayer* OtherPlayer
+					= Cast<AABCharacterPlayer>(PlayerController->GetPawn());
+				if (OtherPlayer)
+				{
+					// Client RPC 전송.
+					//ClientRPCPlayAnimation(OtherPlayer);
+					OtherPlayer->ClientRPCPlayAnimation(this);
+				}
+			}
+		}
+	}
+
 }
 
 void AABCharacterPlayer::MulticastRPCAttack_Implementation()
