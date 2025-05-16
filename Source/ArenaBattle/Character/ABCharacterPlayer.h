@@ -81,6 +81,17 @@ protected:
 	// AttackHitCheck 함수 오버라이드.
 	virtual void AttackHitCheck() override;
 
+	// 공격 판정 확인 함수.
+	void AttackHitConfirm(AActor* HitActor);
+
+	// Debug Draw 함수.
+	void DrawDebugAttackRange(
+		const FColor& DrawColor,
+		FVector TraceStart,
+		FVector TraceEnd,
+		FVector Forward
+	);
+
 	// 공격 명령 처리를 위한 Server RPC 선언.
 	UFUNCTION(Server, Unreliable, WithValidation)
 	void ServerRPCAttack(float AttackStartTime);
@@ -119,6 +130,12 @@ protected:
 
 	// 클라이언트와 서버의 시간 차를 기록하기 위한 변수.
 	float AttackTimeDifference = 0.0f;
+
+	// 공격 판정에 사용할 거리 값.
+	float AttackCheckDistance = 300.0f;
+
+	// 공격을 시작한 후에 이정도 시간은 지나야 판정이 가능하다고 판단할 기준 값.
+	float AcceptMinCheckTime = 0.15f;
 
 // UI Section
 protected:

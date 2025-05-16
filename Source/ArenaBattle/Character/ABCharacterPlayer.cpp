@@ -372,52 +372,152 @@ void AABCharacterPlayer::AttackHitCheck()
 		{
 			// 판정을 보낼 때 RPC에 여러 정보를 함께 보낸다.
 			// 이때 판정 시간도 보낸다.
+
+			if (HitDetected)
+			{
+				// 충돌 검출이 된 경우, 서버에 충돌이 발생했다고 알림.
+				// 이때 서버 기준 판정 시간도 함께 전송.
+				ServerRPCNotifyHit(OutHitResult, HitCheckTime);
+			}
+			else
+			{
+				// 충돌 검출이 안된 경우에도 서버에 전송.
+				ServerRPCNotifyMiss(Start, End, Forward, HitCheckTime);
+			}
+
 		}
 
 		// 서버.
 		else
 		{
+			// 디버그로 공격 범위 그려주기.
+			FColor DebugColor = HitDetected ? FColor::Green : FColor::Red;
+			DrawDebugAttackRange(DebugColor, Start, End, Forward);
 
+			// 서버인 경우에는 판정하지 않고 그대로 대미지 전달 로직 수행.
+			if (HitDetected)
+			{
+				AttackHitConfirm(OutHitResult.GetActor());
+			}
 		}
-
-//		if (HitDetected)
-//		{
-//			FDamageEvent DamageEvent;
-//			OutHitResult.GetActor()->TakeDamage(
-//				AttackDamage,
-//				DamageEvent,
-//				GetController(),
-//				this
-//			);
-//		}
-//
-//#if ENABLE_DRAW_DEBUG
-//
-//		FVector CapsuleOrigin = Start + (End - Start) * 0.5f;
-//		float CapsuleHalfHeight = AttackRange * 0.5f;
-//		FColor DrawColor = HitDetected ? FColor::Green : FColor::Red;
-//
-//		DrawDebugCapsule(
-//			GetWorld(),
-//			CapsuleOrigin,
-//			CapsuleHalfHeight,
-//			AttackRadius,
-//			FRotationMatrix::MakeFromZ(GetActorForwardVector()).ToQuat(),
-//			DrawColor,
-//			false,
-//			5.0f
-//		);
-//#endif
 	}
+}
+
+void AABCharacterPlayer::AttackHitConfirm(AActor* HitActor)
+{
+	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+
+	// 서버에서만 실행.
+	if (HasAuthority())
+	{
+		// 공격 대미지는 스탯에서.
+		const float AttackDamage = Stat->GetTotalStat().Attack;
+
+		FDamageEvent DamageEvent;
+		HitActor->TakeDamage(
+			AttackDamage,
+			DamageEvent,
+			GetController(),
+			this
+		);
+	}
+}
+
+void AABCharacterPlayer::DrawDebugAttackRange(
+	const FColor& DrawColor, FVector TraceStart, FVector TraceEnd, FVector Forward)
+{
+#if ENABLE_DRAW_DEBUG
+
+	const float AttackRange = Stat->GetTotalStat().AttackRange;
+	const float AttackRadius = Stat->GetAttackRadius();
+
+	FVector CapsuleOrigin = TraceStart + (TraceEnd - TraceStart) * 0.5f;
+	float CapsuleHalfHeight = AttackRange * 0.5f;
+	//FColor DrawColor = HitDetected ? FColor::Green : FColor::Red;
+
+	DrawDebugCapsule(
+		GetWorld(),
+		CapsuleOrigin,
+		CapsuleHalfHeight,
+		AttackRadius,
+		FRotationMatrix::MakeFromZ(Forward).ToQuat(),
+		DrawColor,
+		false,
+		5.0f
+	);
+#endif
 }
 
 bool AABCharacterPlayer::ServerRPCNotifyHit_Validate(const FHitResult& HitResult, float HitCheckTime)
 {
-	return true;
+	// 클라이언트로부터 공격 관련 시간 값이 전달 안됐으면, 검증 안함.
+	if (LastAttackStartTime == 0.0f)
+	{
+		return true;
+	}
+
+	// 공격을 시작한 후 공격을 판정한 시간 사이에 걸린 시간이
+	// 공격 판정 최소 기준을 넘어가는 지 확인.
+	return (HitCheckTime - LastAttackStartTime) > AcceptMinCheckTime;
 }
 
 void AABCharacterPlayer::ServerRPCNotifyHit_Implementation(const FHitResult& HitResult, float HitCheckTime)
 {
+	// 맞은 액터.
+	AActor* HitActor = HitResult.GetActor();
+
+	if (IsValid(HitActor))
+	{
+		// 맞은 곳의 정보를 사용해 검증 진행.
+		// 맞은 위치 값.
+		const FVector HitLocation = HitResult.Location;
+
+		// 맞은 캐릭터의 바운딩 박스 영역 가져오기.
+		const FBox HitBox = HitActor->GetComponentsBoundingBox();
+
+		// 중심 위치.
+		const FVector ActorBoxCenter = HitBox.GetCenter();
+
+		// 클라이언트가 보낸 정보를 기반으로,
+		// 맞은 위치와 맞은 액터 사이의 거리가 공격 가능 거리보다 작은지 비교.
+		if (FVector::DistSquared(HitLocation, ActorBoxCenter) 
+			<= AttackCheckDistance * AttackCheckDistance)
+		{
+			// 대미지 전달 기능 구현.
+			AttackHitConfirm(HitActor);
+		}
+		else
+		{
+			AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("HitResult Reject!"));
+		}
+
+		// Debug Draw로 정보 보여주기.
+
+#if ENABLE_DRAW_DEBUG
+
+		// 맞은 액터의 위치를 하늘색으로 표시 (점으로).
+		DrawDebugPoint(
+			GetWorld(),
+			ActorBoxCenter,
+			30.0f,
+			FColor::Cyan,
+			false,
+			5.0f
+		);
+
+		// 맞은 액터의 위치를 자홍색으로 표시 (점으로).
+		DrawDebugPoint(
+			GetWorld(),
+			HitLocation,
+			30.0f,
+			FColor::Magenta,
+			false,
+			5.0f
+		);
+
+#endif
+
+	}
 }
 
 bool AABCharacterPlayer::ServerRPCNotifyMiss_Validate(FVector TraceStart, FVector TraceEnd, FVector TraceDir, float HitCheckTime)
@@ -446,6 +546,8 @@ bool AABCharacterPlayer::ServerRPCAttack_Validate(float AttackStartTime)
 
 void AABCharacterPlayer::ServerRPCAttack_Implementation(float AttackStartTime)
 {
+	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+
 	// 서버에서 처리 할 일.
 	// 공격 중이라는 의미로 플래그 설정.
 	bCanAttack = false;
