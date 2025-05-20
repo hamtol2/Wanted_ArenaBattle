@@ -230,6 +230,12 @@ void AABCharacterPlayer::SetCharacterControlData(const UABCharacterControlData* 
 
 void AABCharacterPlayer::ShoulderMove(const FInputActionValue& Value)
 {
+	// 공격이 불가능할 때는 이동을 못하도록 막기.
+	if (!bCanAttack)
+	{
+		return;
+	}
+
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
 	const FRotator Rotation = Controller->GetControlRotation();
@@ -252,6 +258,12 @@ void AABCharacterPlayer::ShoulderLook(const FInputActionValue& Value)
 
 void AABCharacterPlayer::QuaterMove(const FInputActionValue& Value)
 {
+	// 공격이 불가능할 때는 이동을 못하도록 막기.
+	if (!bCanAttack)
+	{
+		return;
+	}
+
 	FVector2D MovementVector = Value.Get<FVector2D>();
 
 	float InputSizeSquared = MovementVector.SquaredLength();
@@ -634,10 +646,10 @@ void AABCharacterPlayer::ServerRPCAttack_Implementation(float AttackStartTime)
 		//	(PlayerController->IsLocalPlayerController() ? )
 		//);
 
-		// 서버에 있는 플레이어 컨트롤러 거르기.
+		// 서버에 있는 클라이언트에 해당하는 플레이어 컨트롤러 거르기.
 		if (PlayerController && GetController() != PlayerController)
 		{
-			// 클라이언트 중에서 본인이 아닌지 확인.
+			// 리슨서버의 컨트롤러 거르기.
 			if (!PlayerController->IsLocalController())
 			{
 				// 여기로 넘어온 플레이어 컨트롤러는
