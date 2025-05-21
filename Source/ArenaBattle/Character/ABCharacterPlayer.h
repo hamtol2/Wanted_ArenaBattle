@@ -17,7 +17,7 @@ class ARENABATTLE_API AABCharacterPlayer : public AABCharacterBase, public IABCh
 	GENERATED_BODY()
 	
 public:
-	AABCharacterPlayer();
+	AABCharacterPlayer(const FObjectInitializer& ObjectInitializer);
 
 protected:
 	virtual void BeginPlay() override;
@@ -62,6 +62,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<class UInputAction> AttackAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, Meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<class UInputAction> TeleportAction;
 
 	void ShoulderMove(const FInputActionValue& Value);
 	void ShoulderLook(const FInputActionValue& Value);
@@ -145,4 +148,10 @@ protected:
 // UI Section
 protected:
 	virtual void SetupHUDWidget(class UABHUDWidget* InHUDWidget) override;
+
+	// Teleport Section.
+protected:
+	
+	// 텔레포트 입력이 눌렸을 때 바인딩을 통해 실행할 함수.
+	void Teleport();
 };
