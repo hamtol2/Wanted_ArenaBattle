@@ -22,6 +22,7 @@
 #include "EngineUtils.h"
 
 #include "ABCharacterMovementComponent.h"
+#include "Components/WidgetComponent.h"
 
 AABCharacterPlayer::AABCharacterPlayer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UABCharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
@@ -104,11 +105,23 @@ void AABCharacterPlayer::SetDead()
 {
 	Super::SetDead();
 
-	APlayerController* PlayerController = Cast<APlayerController>(GetController());
-	if (PlayerController)
-	{
-		DisableInput(PlayerController);
-	}
+	// 플레이어 리스폰 시간.
+	const float PlayerRespawnTime = 5.0f;
+
+	// 5초후에 앞서 비활성화 했던 항목 복구.
+	GetWorld()->GetTimerManager().SetTimer(
+		DeadTimerHandle,
+		this,
+		&AABCharacterPlayer::ResetPlayer,
+		PlayerRespawnTime,
+		false
+	);
+
+	//APlayerController* PlayerController = Cast<APlayerController>(GetController());
+	//if (PlayerController)
+	//{
+	//	DisableInput(PlayerController);
+	//}
 }
 
 void AABCharacterPlayer::PossessedBy(AController* NewController)
@@ -171,6 +184,39 @@ void AABCharacterPlayer::PostNetInit()
 	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
 }
 
+float AABCharacterPlayer::TakeDamage(
+	float DamageAmount,
+	struct FDamageEvent const& DamageEvent,
+	class AController* EventInstigator,
+	AActor* DamageCauser)
+{
+	// 상위 클래스에서 처리한 값을 일단 사용.
+	const float ActualDamage = Super::TakeDamage(
+		DamageAmount,
+		DamageEvent,
+		EventInstigator,
+		DamageCauser
+	);
+
+	// HP를 모두 소진하면 게임 모드에 알리기.
+	if (Stat->GetCurrentHp() <= 0.0f)
+	{
+		// 게임 모드를 인터페이스로 접근.
+		IABGameInterface* ABGameMode
+			= GetWorld()->GetAuthGameMode<IABGameInterface>();
+		if (ABGameMode)
+		{
+			ABGameMode->OnPlayerKilled(
+				EventInstigator,
+				GetController(),
+				this
+			);
+		}
+	}
+
+	return ActualDamage;
+}
+
 void AABCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
 {
 	Super::SetupPlayerInputComponent(PlayerInputComponent);
@@ -184,7 +230,7 @@ void AABCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* Player
 	EnhancedInputComponent->BindAction(ShoulderLookAction, ETriggerEvent::Triggered, this, &AABCharacterPlayer::ShoulderLook);
 	EnhancedInputComponent->BindAction(QuaterMoveAction, ETriggerEvent::Triggered, this, &AABCharacterPlayer::QuaterMove);
 	EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Triggered, this, &AABCharacterPlayer::Attack);
-	
+
 	// 텔레포트 입력 바인딩.
 	EnhancedInputComponent->BindAction(TeleportAction, ETriggerEvent::Triggered, this, &AABCharacterPlayer::Teleport);
 }
@@ -325,17 +371,11 @@ void AABCharacterPlayer::Attack()
 			// 고려해야할 것:
 			// 캐릭터 무브먼트 설정이나 공격 시간 등은 
 			// 클라이언트가 악의적으로 변경(변조)할 수 있다는 사실을 가정해야 한다.
-			FTimerHandle Handle;
 			GetWorld()->GetTimerManager().SetTimer(
-				Handle,
-				FTimerDelegate::CreateLambda([&]()
-					{
-						// 공격이 끝나면 처리.
-						bCanAttack = true;
-
-						GetCharacterMovement()->SetMovementMode(EMovementMode::MOVE_Walking);
-					})
-				, AttackTime, false
+				AttackTimerHandle,
+				this,
+				&AABCharacterPlayer::ResetAttack,
+				AttackTime, false
 			);
 
 			// 애니메이션 재생.
@@ -354,13 +394,63 @@ void AABCharacterPlayer::Teleport()
 {
 	AB_LOG(LogABTeleport, Log, TEXT("%s"), TEXT("Begin"));
 
-	UABCharacterMovementComponent* ABMovement 
+	UABCharacterMovementComponent* ABMovement
 		= Cast<UABCharacterMovementComponent>(GetCharacterMovement());
 
 	if (ABMovement)
 	{
 		ABMovement->SetTeleportCommand();
 	}
+}
+
+void AABCharacterPlayer::ResetPlayer()
+{
+	// 애니메이션 정리.
+	UAnimInstance* AnimInstance = GetMesh()->GetAnimInstance();
+	if (AnimInstance)
+	{
+		AnimInstance->StopAllMontages(0.0f);
+	}
+
+	// 현재 레벨을 초기값으로 되돌리기.
+	Stat->SetLevelStat(1);
+
+	// 스탯 초기화.
+	Stat->ResetStat();
+
+	// 여러 항목 복구.
+	GetCharacterMovement()->SetMovementMode(
+		EMovementMode::MOVE_Walking
+	);
+
+	// 콜리전 켜기.
+	SetActorEnableCollision(true);
+
+	// HPBar UI 복구.
+	HpBar->SetHiddenInGame(false);
+
+	// 서버 로직: 플레이어의 리스폰 위치를 설정.
+	if (HasAuthority())
+	{
+		IABGameInterface* ABGameMode
+			= GetWorld()->GetAuthGameMode<IABGameInterface>();
+		if (ABGameMode)
+		{
+			FTransform NewTransform = ABGameMode->GetRandomStartTransform();
+			TeleportTo(
+				NewTransform.GetLocation(),
+				NewTransform.GetRotation().Rotator()
+			);
+		}
+	}
+}
+
+void AABCharacterPlayer::ResetAttack()
+{
+	bCanAttack = true;
+	GetCharacterMovement()->SetMovementMode(
+		EMovementMode::MOVE_Walking
+	);
 }
 
 void AABCharacterPlayer::PlayAttackAnimation()
@@ -528,7 +618,7 @@ void AABCharacterPlayer::ServerRPCNotifyHit_Implementation(const FHitResult& Hit
 
 		// 클라이언트가 보낸 정보를 기반으로,
 		// 맞은 위치와 맞은 액터 사이의 거리가 공격 가능 거리보다 작은지 비교.
-		if (FVector::DistSquared(HitLocation, ActorBoxCenter) 
+		if (FVector::DistSquared(HitLocation, ActorBoxCenter)
 			<= AttackCheckDistance * AttackCheckDistance)
 		{
 			// 대미지 전달 기능 구현.
@@ -567,9 +657,9 @@ void AABCharacterPlayer::ServerRPCNotifyHit_Implementation(const FHitResult& Hit
 
 		// 디버그 드로우로 공격 영역 보여주기.
 		DrawDebugAttackRange(
-			FColor::Green, 
-			HitResult.TraceStart, 
-			HitResult.TraceEnd, 
+			FColor::Green,
+			HitResult.TraceStart,
+			HitResult.TraceEnd,
 			HitActor->GetActorForwardVector()
 		);
 	}
@@ -607,7 +697,7 @@ bool AABCharacterPlayer::ServerRPCAttack_Validate(float AttackStartTime)
 	// 이전에 기록된 공격 시간과 이번에 요청한 공격 시간과의 차이가
 	// 공격 애니메이션 길이보다 큰지 확인.
 	// 이 값이 공격 애니메이션 길이보다 작다면, 클라이언트를 의심해볼 수 있는 상황.
-	return (AttackStartTime - LastAttackStartTime) > AttackTime;
+	return (AttackStartTime - LastAttackStartTime) > (AttackTime - 0.4f);
 }
 
 void AABCharacterPlayer::ServerRPCAttack_Implementation(float AttackStartTime)
@@ -637,15 +727,12 @@ void AABCharacterPlayer::ServerRPCAttack_Implementation(float AttackStartTime)
 	);
 
 	// 타이머 설정.
-	FTimerHandle Handle;
 	GetWorld()->GetTimerManager().SetTimer(
-		Handle,
-		FTimerDelegate::CreateLambda([&]()
-			{
-				bCanAttack = true;
-				OnRep_CanAttack();
-			})
-		, AttackTime - AttackTimeDifference, false
+		AttackTimerHandle,
+		this,
+		&AABCharacterPlayer::ResetAttack,
+		AttackTime - AttackTimeDifference,
+		false
 	);
 
 	// 클라이언트가 공격 요청을 한 시간 값 저장.

@@ -84,4 +84,9 @@ protected:
 
 	UPROPERTY(Transient, ReplicatedUsing = OnRep_ModifierStat, VisibleInstanceOnly, Category = Stat, Meta = (AllowPrivateAccess = "true"))
 	FABCharacterStat ModifierStat;
+
+public:
+
+	// 스탯을 초기화하는 함수.
+	void ResetStat();
 };

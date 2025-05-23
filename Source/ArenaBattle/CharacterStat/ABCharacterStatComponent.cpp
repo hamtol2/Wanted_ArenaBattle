@@ -15,19 +15,23 @@ UABCharacterStatComponent::UABCharacterStatComponent()
 	bWantsInitializeComponent = true;
 
 	// 컴포넌트 리플리케이션 활성화.
-	SetIsReplicated(true);
+	//SetIsReplicated(true);
 }
 
 void UABCharacterStatComponent::InitializeComponent()
 {
 	Super::InitializeComponent();
 
-	SetLevelStat(CurrentLevel);
-	MaxHp = BaseStat.MaxHp;
-	SetHp(MaxHp);
+	//SetLevelStat(CurrentLevel);
+	//MaxHp = BaseStat.MaxHp;
+	//SetHp(MaxHp);
+	ResetStat();
 
 	// 스탯 변경 이벤트에 최대 체력 설정 함수 등록.
 	OnStatChanged.AddUObject(this, &UABCharacterStatComponent::SetNewMaxHp);
+
+	// 컴포넌트 리플리케이션 활성화.
+	SetIsReplicated(true);
 }
 
 void UABCharacterStatComponent::BeginPlay()
@@ -135,4 +139,14 @@ void UABCharacterStatComponent::SetHp(float NewHp)
 	CurrentHp = FMath::Clamp<float>(NewHp, 0.0f, MaxHp);
 	
 	OnHpChanged.Broadcast(CurrentHp, MaxHp);
+}
+
+void UABCharacterStatComponent::ResetStat()
+{
+	// 현재 레벨을 불러와 레벨 데이터 설정.
+	SetLevelStat(CurrentLevel);
+
+	// 설정된 스탯으로 초기화.
+	MaxHp = BaseStat.MaxHp;
+	SetHp(MaxHp);
 }

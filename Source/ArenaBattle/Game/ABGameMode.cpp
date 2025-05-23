@@ -5,6 +5,8 @@
 #include "Player/ABPlayerController.h"
 #include "ArenaBattle.h"
 #include "ABGameState.h"
+#include "GameFramework/PlayerStart.h"
+#include "EngineUtils.h"
 
 AABGameMode::AABGameMode()
 {
@@ -24,9 +26,24 @@ AABGameMode::AABGameMode()
 	GameStateClass = AABGameState::StaticClass();
 }
 
-void AABGameMode::OnPlayerDead()
+FTransform AABGameMode::GetRandomStartTransform() const
 {
+	// PlayerStartArray 배열 정보가 초기화 안됐다면, 기본 위치 반환.
+	if (PlayerStartArray.Num() == 0)
+	{
+		return FTransform(FVector(0.0f, 0.0f, 230.0f));
+	}
 
+	// 랜덤으로 인덱스 선택.
+	int32 RandIndex = FMath::RandRange(0, PlayerStartArray.Num() - 1);
+
+	// 선택한 인덱스에 해당하는 플레이어 스타트 액터의 트랜스폼 반환.
+	return PlayerStartArray[RandIndex]->GetActorTransform();
+}
+
+void AABGameMode::OnPlayerKilled(
+	AController* Killer, AController* KilledPlayer, APawn* KilledPawn)
+{
 }
 
 void AABGameMode::PreLogin(
@@ -93,9 +110,12 @@ void AABGameMode::PostLogin(APlayerController* NewPlayer)
 
 void AABGameMode::StartPlay()
 {
-	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
-
 	Super::StartPlay();
 
-	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
+	// 액터에 있는 플레이어 스타트 액터 순회.
+	for (APlayerStart* PlayerStart : TActorRange<APlayerStart>(GetWorld()))
+	{
+		// 배열에 추가.
+		PlayerStartArray.Add(PlayerStart);
+	}
 }

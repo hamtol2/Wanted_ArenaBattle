@@ -24,12 +24,12 @@ protected:
 
 protected:
 	void SetDead() override;
-	void NPCMeshLoadCompleted();
+	//void NPCMeshLoadCompleted();
 
 	UPROPERTY(config)
 	TArray<FSoftObjectPath> NPCMeshes;
 	
-	TSharedPtr<FStreamableHandle> NPCMeshHandle;
+	//TSharedPtr<FStreamableHandle> NPCMeshHandle;
 
 // AI Section
 protected:
