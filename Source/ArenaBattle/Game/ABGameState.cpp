@@ -3,21 +3,35 @@
 
 #include "Game/ABGameState.h"
 #include "ArenaBattle.h"
+#include "Net/UnrealNetwork.h"
 
-void AABGameState::HandleBeginPlay()
+AABGameState::AABGameState()
 {
-	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
-
-	Super::HandleBeginPlay();
-
-	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
+	// 타이머에 사용할 RemainingTime 변수에 경기 시간 값 설정.
+	RemainingTime = MatchPlayTime;
 }
 
-void AABGameState::OnRep_ReplicatedHasBegunPlay()
+void AABGameState::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
 {
-	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
 
-	Super::OnRep_ReplicatedHasBegunPlay();
-
-	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
+	DOREPLIFETIME(AABGameState, RemainingTime);
 }
+
+//void AABGameState::HandleBeginPlay()
+//{
+//	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+//
+//	Super::HandleBeginPlay();
+//
+//	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
+//}
+//
+//void AABGameState::OnRep_ReplicatedHasBegunPlay()
+//{
+//	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
+//
+//	Super::OnRep_ReplicatedHasBegunPlay();
+//
+//	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
+//}
