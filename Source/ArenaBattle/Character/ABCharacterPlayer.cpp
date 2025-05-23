@@ -24,6 +24,9 @@
 #include "ABCharacterMovementComponent.h"
 #include "Components/WidgetComponent.h"
 
+#include "GameFramework/PlayerState.h"
+#include "Engine/AssetManager.h"
+
 AABCharacterPlayer::AABCharacterPlayer(const FObjectInitializer& ObjectInitializer)
 	: Super(ObjectInitializer.SetDefaultSubobjectClass<UABCharacterMovementComponent>(ACharacter::CharacterMovementComponentName))
 {
@@ -126,33 +129,11 @@ void AABCharacterPlayer::SetDead()
 
 void AABCharacterPlayer::PossessedBy(AController* NewController)
 {
-	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("Begin"));
-
-	// PossessedBy 함수 호출 전 액터의 소유 확인.
-	AActor* OwnerActor = GetOwner();
-	if (OwnerActor)
-	{
-		AB_LOG(LogABNetwork, Log, TEXT("Owner: %s"), *OwnerActor->GetName());
-	}
-	else
-	{
-		AB_LOG(LogABNetwork, Log, TEXT("No Owner"));
-	}
-
+	// 상위 로직에서 PlayerState 값이 컨트롤러부터 설정됨.
 	Super::PossessedBy(NewController);
 
-	// PossessedBy 함수 호출 후 액터의 소유 확인.
-	OwnerActor = GetOwner();
-	if (OwnerActor)
-	{
-		AB_LOG(LogABNetwork, Log, TEXT("Owner: %s"), *OwnerActor->GetName());
-	}
-	else
-	{
-		AB_LOG(LogABNetwork, Log, TEXT("No Owner"));
-	}
-
-	AB_LOG(LogABNetwork, Log, TEXT("%s"), TEXT("End"));
+	// 서버의 경우 로컬 플레이어를 PossessedBy를 통해서 진행.
+	UpdateMeshFromPlayerState();
 }
 
 void AABCharacterPlayer::OnRep_Owner()
@@ -215,6 +196,13 @@ float AABCharacterPlayer::TakeDamage(
 	}
 
 	return ActualDamage;
+}
+
+void AABCharacterPlayer::OnRep_PlayerState()
+{
+	Super::OnRep_PlayerState();
+
+	UpdateMeshFromPlayerState();
 }
 
 void AABCharacterPlayer::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -450,6 +438,25 @@ void AABCharacterPlayer::ResetAttack()
 	bCanAttack = true;
 	GetCharacterMovement()->SetMovementMode(
 		EMovementMode::MOVE_Walking
+	);
+}
+
+void AABCharacterPlayer::UpdateMeshFromPlayerState()
+{
+	//int32 RandIndex = FMath::RandRange(0, NPCMeshes.Num() - 1);
+
+	// PlayerId를 활용해서 인덱스 값 설정.
+	int32 MeshIndex = FMath::Clamp(
+		GetPlayerState()->GetPlayerId() % PlayerMeshes.Num(),
+		0,
+		GetPlayerState()->GetPlayerId() % PlayerMeshes.Num() - 1
+	);
+
+	MeshHandle = UAssetManager::Get().GetStreamableManager().RequestAsyncLoad(
+		PlayerMeshes[MeshIndex],
+		FStreamableDelegate::CreateUObject(
+			this, &AABCharacterBase::MeshLoadCompleted
+		)
 	);
 }
 

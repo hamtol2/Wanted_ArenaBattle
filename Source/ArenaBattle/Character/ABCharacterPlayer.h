@@ -33,6 +33,9 @@ protected:
 		class AController* EventInstigator, 
 		AActor* DamageCauser) override;
 
+	// 플레이어 스테이트가 클라이언트에 동기화될 때 호출.
+	virtual void OnRep_PlayerState() override;
+
 public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
@@ -169,6 +172,9 @@ public:
 
 	// 공격을 해제할 때 사용할 함수.
 	void ResetAttack();
+
+	// 플레이어 스테이트로부터 메시 정보를 업데이트할 때 사용할 함수.
+	void UpdateMeshFromPlayerState();
 
 	// 리스폰 관련 처리를 위한 타이머 핸들.
 	FTimerHandle AttackTimerHandle;
